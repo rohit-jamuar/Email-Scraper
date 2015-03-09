@@ -68,12 +68,15 @@ def get_html(link=None, driver=None):
         return BeautifulSoup(driver.page_source)
 
 
-def in_same_domain(source, target):
+def in_same_domain(source=None, target=None):
     '''
     Function checks whether 'target' URL has the same domain-name as the
     'source'.
     '''
-    return source.split('.')[-2:] == urlparse(target).netloc.split('.')[-2:]
+    if all([source, target, isinstance(source, str), isinstance(target, str)]):
+        return source.split('.')[-2:] == \
+            urlparse(target).netloc.split('.')[-2:]
+    return False
 
 
 def find_mail_address(html_corpus=None):
