@@ -32,7 +32,7 @@ class EmailScraper(object):
         '''
         This method is the publicly available method which in-turn is
         responsible for finding all the email-addresses within a domain. The
-        extraction follows BFS traversal, once the traversal completes, the
+        extraction follows DFS traversal, once the traversal completes, the
         collected email-addresses are printed in a one-per-line fashion.
         '''
         node_list = ['http://{}/'.format(self.domain_name)]
@@ -42,8 +42,9 @@ class EmailScraper(object):
                 self.visited.add(current_node)
                 html_response = get_html(current_node, self.driver)
                 if html_response:
-                    node_list.extend(
-                        fetch_links(html_response, self.domain_name))
+                    node_list.extend(fetch_links(html_response,
+                                                 self.domain_name,
+                                                 self.visited))
                     for address in find_mail_address(html_response):
                         self.extracted_mail.add(address)
         self.driver.close()
@@ -60,11 +61,19 @@ def get_html(link=None, driver=None):
     '''
     This function is responsible for taking the URL (passed via 'link' arg)
     and making the HTTP request. The HTML is stripped from the response
-    and returned to caller.
+    and returned to caller as a BeautifulSoup object.
     '''
     if link and driver:
         driver.get(link)
         return BeautifulSoup(driver.page_source)
+
+
+def in_same_domain(source, target):
+    '''
+    Function checks whether 'target' URL has the same domain-name as the
+    'source'.
+    '''
+    return source.split('.')[-2:] == urlparse(target).netloc.split('.')[-2:]
 
 
 def find_mail_address(html_corpus=None):
@@ -80,7 +89,7 @@ def find_mail_address(html_corpus=None):
             find_all(text=compile(r'\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,6}'))]
 
 
-def fetch_links(html_corpus=None, domain_name=None):
+def fetch_links(html_corpus=None, domain_name=None, visited_links=None):
     '''
     This function fetches all the URLs (belonging to the domain-name passed
     as command-line arg) from the 'html_corpus'. This method also
@@ -88,13 +97,15 @@ def fetch_links(html_corpus=None, domain_name=None):
     method would only work with absolute links.
     '''
     links = []
-    if html_corpus and domain_name:
+    if all([html_corpus, domain_name, visited_links,
+            isinstance(visited_links, set)]):
         for link in html_corpus.find_all('a'):
             link = link.get('href', None)
             if link:
                 to_traverse = "http://{}{}".format(domain_name, link)\
                     if link.startswith('/') else link
-                if urlparse(to_traverse).netloc == domain_name:
+                if in_same_domain(domain_name, to_traverse) and \
+                        to_traverse not in visited_links:
                     links.append(to_traverse)
     return links
 
