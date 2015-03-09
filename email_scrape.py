@@ -102,11 +102,13 @@ def fetch_links(html_corpus=None, domain_name=None, visited_links=None):
         for link in html_corpus.find_all('a'):
             link = link.get('href', None)
             if link:
-                to_traverse = "http://{}{}".format(domain_name, link)\
-                    if link.startswith('/') else link
-                if in_same_domain(domain_name, to_traverse) and \
-                        to_traverse not in visited_links:
-                    links.append(to_traverse)
+                if link.startswith('/'):
+                    to_traverse = "http://{}{}".format(domain_name, link)
+                    if to_traverse not in visited_links:
+                        links.append(to_traverse)
+                elif in_same_domain(domain_name, link) \
+                        and link not in visited_links:
+                    links.append(link)
     return links
 
 
