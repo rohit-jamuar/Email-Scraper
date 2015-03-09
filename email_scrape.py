@@ -93,7 +93,7 @@ def fetch_links(html_corpus=None, domain_name=None, visited_links=None):
     '''
     This function fetches all the URLs (belonging to the domain-name passed
     as command-line arg) from the 'html_corpus'. This method also
-    rewrites relative-links to their absolute form - '_get_html'
+    rewrites relative-links to their absolute form - 'get_html'
     method would only work with absolute links.
     '''
     links = []
