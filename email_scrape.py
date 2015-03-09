@@ -41,9 +41,11 @@ class EmailScraper(object):
             if current_node not in self.visited:
                 self.visited.add(current_node)
                 html_response = get_html(current_node, self.driver)
-                node_list.extend(fetch_links(html_response, self.domain_name))
-                for address in find_mail_address(html_response):
-                    self.extracted_mail.add(address)
+                if html_response:
+                    node_list.extend(
+                        fetch_links(html_response, self.domain_name))
+                    for address in find_mail_address(html_response):
+                        self.extracted_mail.add(address)
         self.driver.close()
         if self.extracted_mail:
             print 'Found these email address(es) :'
