@@ -7,5 +7,7 @@ Scrape email-address(es) from a user-provided domain. Scraped email-address(es) 
 ## External Dependencies:
 * Selenium  (`sudo pip install selenium`)
 * BeautifulSoup4 (`sudo pip install BeautifulSoup4`)
+* Install [NodeJS](https://nodejs.org/download/)
+  * Install PhantomJS : `npm -g install phantomjs`
 
 ### Please be conscientious!
