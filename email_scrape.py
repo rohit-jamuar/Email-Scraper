@@ -3,7 +3,7 @@
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from re import compile, IGNORECASE
+from re import compile, IGNORECASE, findall
 from urlparse import urlparse
 
 
@@ -15,16 +15,19 @@ class EmailScraper(object):
     External Dependencies :
     1. Selenium      -- sudo pip install selenium
     2. BeautifulSoup -- sudo pip install BeautifulSoup4
+    3. nodeJS 
+    4. PhantomJS
     '''
 
     def __init__(self, domain_name=None):
         if domain_name and is_valid_domain(domain_name):
             self.domain_name = 'www.{}'.format(domain_name) \
                 if not domain_name.startswith('www') else domain_name
+            self.dn_as_list = self.domain_name.split('.')[1:]
         else:
             print 'Invalid domain-name passed!'
             exit(1)
-        self.driver = webdriver.Firefox()
+        self.driver = webdriver.PhantomJS()
         self.visited = {'/'}
         self.extracted_mail = set()
 
@@ -40,10 +43,15 @@ class EmailScraper(object):
             current_node = node_list.pop()
             if current_node not in self.visited:
                 self.visited.add(current_node)
+                if not current_node.endswith('/'):
+                    self.visited.add('{}/'.format(current_node))
+                else:
+                    self.visited.add(current_node[:-1])
                 html_response = get_html(current_node, self.driver)
                 if html_response:
                     node_list.extend(fetch_links(html_response,
                                                  self.domain_name,
+                                                 self.dn_as_list,
                                                  self.visited))
                     for address in find_mail_address(html_response):
                         self.extracted_mail.add(address)
@@ -65,7 +73,7 @@ def get_html(link=None, driver=None):
     '''
     if link and driver:
         driver.get(link)
-        return BeautifulSoup(driver.page_source)
+        return BeautifulSoup(driver.page_source, "lxml")
 
 
 def in_same_domain(source=None, target=None):
@@ -73,9 +81,8 @@ def in_same_domain(source=None, target=None):
     Function checks whether 'target' URL has the same domain-name as the
     'source'.
     '''
-    if all([source, target, isinstance(source, str), isinstance(target, str)]):
-        return source.split('.')[-2:] == \
-            urlparse(target).netloc.split('.')[-2:]
+    if all([type(source) == list, type(target) == str]):
+        return source == urlparse(target).netloc.split('.')[-len(source):]
     return False
 
 
@@ -86,31 +93,33 @@ def find_mail_address(html_corpus=None):
     current pattern should suffice. Regex was chosen as it would be
     particularly difficult to write a generic XPath query for finding
     email addresses from DOM with varying (perhaps, extremely
-    nested) structures. The addresses are returned as a list.
+    nested) structures. The addresses are returned as a set.
     '''
-    return [mail for mail in html_corpus.
-            find_all(text=compile(r'\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,6}'))]
+    return {mail.lower() for mail in
+            findall(compile(r'[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}'),
+                    html_corpus.get_text())}
 
 
-def fetch_links(html_corpus=None, domain_name=None, visited_links=None):
+def fetch_links(html_corpus=None, domain_name=None,
+                dn_as_list=None, visited_links=None):
     '''
     This function fetches all the URLs (belonging to the domain-name passed
     as command-line arg) from the 'html_corpus'. This method also
-    rewrites relative-links to their absolute form - 'get_html'
+    rewrites relative-links to their absolute form - '_get_html'
     method would only work with absolute links.
     '''
     links = []
-    if all([html_corpus, domain_name, visited_links,
-            isinstance(visited_links, set)]):
+    if all([html_corpus, domain_name, type(visited_links) == set,
+            type(dn_as_list) == list]):
         for link in html_corpus.find_all('a'):
             link = link.get('href', None)
-            if link:
+            if link and not link.startswith('#'):
                 if link.startswith('/'):
                     to_traverse = "http://{}{}".format(domain_name, link)
                     if to_traverse not in visited_links:
                         links.append(to_traverse)
-                elif in_same_domain(domain_name, link) \
-                        and link not in visited_links:
+                elif in_same_domain(dn_as_list, link) and \
+                        link not in visited_links:
                     links.append(link)
     return links
 
